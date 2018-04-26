@@ -38,3 +38,21 @@ InducedEquivalence = record
     ; trans = Prod.zip trans (flip trans)
     }
   }
+
+------------------------------------------------------------------------
+-- For every preorder there is an induced poset over InducedEquivalence
+
+InducedPoset : Poset _ _ _
+InducedPoset = record
+  { _≈_            = _≋_
+  ; _≤_            = _∼_
+  ; isPartialOrder = record
+    { isPreorder = record
+      { isEquivalence = equiv
+      ; reflexive     = proj₁
+      ; trans         = trans
+      }
+    ; antisym    = _,_
+    }
+  } where open Setoid InducedEquivalence using ()
+               renaming (_≈_ to _≋_ ; isEquivalence to equiv)
