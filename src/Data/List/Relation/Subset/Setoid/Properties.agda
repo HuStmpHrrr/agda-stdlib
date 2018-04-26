@@ -6,53 +6,43 @@
 
 module Data.List.Relation.Subset.Setoid.Properties where
 
-open import Level
+open import Level using (Level ; _⊔_ ; lift)
 open import Data.List
-open import Data.List.Any using (Any; here; there)
+open import Data.List.Any as Any using (Any; here; there)
+open import Data.List.All
 open import Data.Product
+open import Data.List.Membership.Setoid.Properties using (∈-concat⁺ ; ∈-concat⁻)
 
-open import Relation.Nullary using (¬_)
+import Data.List.Relation.Subset.Setoid as SSetoid
+import Data.List.Relation.Subset.Setoid.Structures as SStructures
+import Data.List.Membership.Setoid as MSetoid
+
 open import Relation.Binary
-open import Relation.Binary.InducedPreorders
+open import Function
+
+module Lift {c ℓ} (S : Setoid c ℓ) where
+  open SSetoid S public
+  open SStructures S public
 
 module _ {c ℓ} (S : Setoid c ℓ) where
 
-  open import Data.List.Relation.Subset.Setoid S
-  open import Data.List.Membership.Setoid S
-  open Setoid S renaming (Carrier to A)
-  
-  ⊆′-growʳ : ∀ {x : A} {l l′} → l ⊆′ l′ → l ⊆′ x ∷ l′
-  ⊆′-growʳ {x} {.[]}      emp                = emp
-  ⊆′-growʳ {x} {.(h ∷ _)} (grow h h∈l l⊆′l′) = grow h (there h∈l) (⊆′-growʳ l⊆′l′)
-  
-  l⊆′x∷l : ∀ {x l} → l ⊆′ x ∷ l
-  l⊆′x∷l {x} {l = []} = emp
-  l⊆′x∷l {x} {y ∷ l}  = grow y (there (here refl)) (⊆′-growʳ l⊆′x∷l)
-  
-  ⊆′-refl : Reflexive _⊆′_
-  ⊆′-refl {[]}     = emp
-  ⊆′-refl {x ∷ x₁} = grow x (here refl) l⊆′x∷l
-  
-  ⊆′-trans : Transitive _⊆′_
-  ⊆′-trans emp              y⊆z = emp
-  ⊆′-trans (grow h h∈y x⊆y) y⊆z = grow h (∈-resp-⊆′ y⊆z h∈y) (⊆′-trans x⊆y y⊆z)
+  open Setoid S
 
-  ⊆′-preorder : Preorder _ _ _
-  ⊆′-preorder = InducedPreorder₃ S _⊆′_ ⊆′-refl ⊆′-trans  
+  private
+    module L0 = Lift S
+    Lequiv = L0.InducedEquivalence
+    module MS1 = MSetoid Lequiv
+    module L1 = Lift Lequiv
 
-  -- set equivalence relation
-  _≋_ : List A → List A → Set _
-  _≋_ = eq
-    where open Preorder ⊆′-preorder renaming (_≈_ to eq)
+  -- following proofs show that there is something really general here
 
-  ∈-resp-≋ : ∀ {x} → (x ∈_) Respects _≋_
-  ∈-resp-≋ (xs⊆ys , _) x∈xs = ∈-resp-⊆′ xs⊆ys x∈xs
+  ∈-concat⁺′ : ∀ {x l L} → x L0.∈ l → l L1.∈ L → x L0.∈ concat L
+  ∈-concat⁺′ x∈l = ∈-concat⁺ S ∘ Any.map (flip L0.∈-resp-≋ x∈l)
 
-  open import Relation.Binary.Properties.Preorder ⊆′-preorder public  
-  open import Relation.Binary.NonStrictToStrict
+  ∈-concat⁻′ : ∀ {v} xss → v L0.∈ concat xss → ∃ λ xs → v L0.∈ xs × xs L1.∈ xss
+  ∈-concat⁻′ xss v∈c[xss] with MS1.find (∈-concat⁻ S xss v∈c[xss])
+  ... | xs , t , s = xs , s , t
 
-  InducedStrictPartialOrder : StrictPartialOrder _ _ _
-  InducedStrictPartialOrder = record
-    { isStrictPartialOrder = <-isStrictPartialOrder _≋_ _⊆′_ isPartialOrder }
-    where open Poset InducedPoset
-    
+  ∉-concat : ∀ {x l L} → x L0.∉ concat L → l L1.∈ L → x L0.∉ l
+  ∉-concat x∉⋃L = (flip ∘ curry) (x∉⋃L ∘ uncurry ∈-concat⁺′)
+

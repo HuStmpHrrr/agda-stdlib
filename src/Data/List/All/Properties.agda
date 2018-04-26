@@ -44,6 +44,15 @@ module _ {a p} {A : Set a} {P : A → Set p} where
   All-irrelevance irr (px₁ ∷ pxs₁) (px₂ ∷ pxs₂) =
     P.cong₂ _∷_ (irr px₁ px₂) (All-irrelevance irr pxs₁ pxs₂)
 
+  -- We can drop the element of list arbitrarily
+  All-dropˡ : ∀ xs {ys} → All P (xs ++ ys) → All P ys
+  All-dropˡ []       pxs        = pxs
+  All-dropˡ (x ∷ xs) (px ∷ pxs) = All-dropˡ xs pxs
+
+  All-dropʳ : ∀ xs {ys} → All P (xs ++ ys) → All P xs
+  All-dropʳ []       pxs        = []
+  All-dropʳ (x ∷ xs) (px ∷ pxs) = px ∷ (All-dropʳ xs pxs)
+
 ------------------------------------------------------------------------
 -- Lemmas relating Any, All and negation.
 

@@ -46,7 +46,7 @@ InducedPreorder₂ _R_ resp = record
     ; trans         = λ c₁∼c₂ c₂∼c₃ → c₂∼c₃ ∘ c₁∼c₂
     }
   }
-  
+
 -- Every reflexive and transitive binary relation induces a preorder.
 
 InducedPreorder₃ : ∀ {a r} {A : Set a} →
