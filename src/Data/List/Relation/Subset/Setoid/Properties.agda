@@ -47,25 +47,29 @@ module _ {c ℓ} (S : Setoid c ℓ) where
   ∉-concat x∉⋃L = (flip ∘ curry) (x∉⋃L ∘ uncurry ∈-concat⁺′)
 
 
--- base setoid, then we spawn more setoids using this
-module ∈⊆-Reasoning {c ℓ} (S : Setoid c ℓ) where
+module Hierarchy {c ℓ} (S : Setoid c ℓ) where
 
   open import Data.Nat using (ℕ ; zero ; suc ; _+_)
-  import Relation.Binary.PartialOrderReasoning as PORe
   open import Relation.Binary.PropositionalEquality using (_≡_ ; refl ; sym)
 
-  open Setoid S using (Carrier)
+  Base : Setoid c ℓ
+  Base = S
 
-  private
-    -- setoid level - 1, setoids spawned off base setoid
-    subsetoids : ℕ → Setoid _ _
-    subsetoids zero    = L.≋-setoid
-      where module L   = Lift S
-    subsetoids (suc n) = L.≋-setoid
-      where module L   = Lift (subsetoids n)
+  module B = Lift S
+
+  open Setoid Base using (Carrier)
+
+  -- setoids that are used to generate more subset relations
+  Subsetoids : ℕ → Setoid _ _
+  Subsetoids zero    = B.≋-setoid
+  Subsetoids (suc n) = L.≋-setoid
+    where module L   = Lift (Subsetoids n)
+
+  -- we here build a hierarchy of subset relations out of those subsetoids
+  module Sub (n : ℕ) = Lift (Subsetoids n)
 
   Subcarriers : ℕ → Set _
-  Subcarriers n = Setoid.Carrier (subsetoids n)
+  Subcarriers n = Setoid.Carrier (Subsetoids n)
 
   NList : ∀ {a} → ℕ → Set a → Set a
   NList zero    A = A
@@ -75,47 +79,73 @@ module ∈⊆-Reasoning {c ℓ} (S : Setoid c ℓ) where
   concats′ zero    nl = nl
   concats′ (suc n) nl = concat (concats′ n nl)
 
+  GNL : ℕ → ℕ → Set c
+  GNL m n = NList m (NList n (List Carrier))
+
   NL : ℕ → Set c
-  NL n = NList n (List Carrier)
+  NL = GNL 0
 
-  concats : ∀ n → NL n → List Carrier
-  concats n nl = concats′ n nl
+  concats : ∀ n → NL n → NL 0
+  concats = concats′
 
-  private
-    NList-comm : ∀ {a} (A : Set a) → (n : ℕ) → NList n (List A) ≡ List (NList n A)
-    NList-comm _ zero    = refl
-    NList-comm _ (suc n) = NList-comm _ n
+  NList-comm : ∀ {a} (A : Set a) → (n : ℕ) → NList n (List A) ≡ List (NList n A)
+  NList-comm _ zero    = refl
+  NList-comm _ (suc n) = NList-comm _ n
 
-    subsetoid-carriers : ∀ n → Subcarriers n ≡ NL n
-    subsetoid-carriers zero        = refl
-    subsetoid-carriers (suc n)
-      rewrite NList-comm (List Carrier) n
-            | subsetoid-carriers n = refl
+  gconcats : ∀ m n → GNL m n → NL n
+  gconcats m n rewrite NList-comm Carrier n = concats′ m
+
+  gconcats0⇒id : ∀ n → (l : NL n) → gconcats 0 n l ≡ l
+  gconcats0⇒id zero l = refl
+  gconcats0⇒id (suc n) l
+    rewrite NList-comm (List Carrier) n = refl
+
+  NL⇒GNL : ∀ m n → NL (m + n) ≡ GNL m n
+  NL⇒GNL zero _        = refl
+  NL⇒GNL (suc m) n
+    rewrite NList-comm (List Carrier) (m + n)
+          | NL⇒GNL m n = sym (NList-comm _ m)
+
+  NL⇒GNL′ : ∀ m n → NL (suc m + n) ≡ GNL m (suc n)
+  NL⇒GNL′ zero n    = refl
+  NL⇒GNL′ (suc m) n
+    rewrite NList-comm (List (List Carrier)) (m + n)
+          | NL⇒GNL′ m n = sym (NList-comm _ m)
+
+  subsetoid-carriers : ∀ n → Subcarriers n ≡ NL n
+  subsetoid-carriers zero        = refl
+  subsetoid-carriers (suc n)
+    rewrite NList-comm (List Carrier) n
+          | subsetoid-carriers n = refl
 
   contain-at′ : ∀ n (x : Subcarriers n) (xs : Subcarriers (suc n)) → Set (c ⊔ ℓ)
   contain-at′ n = _∈_
-    where open Lift (subsetoids n)
+    where open Sub n
 
   subset-at′ : ∀ n (l₁ l₂ : Subcarriers (suc n)) → Set (c ⊔ ℓ)
   subset-at′ n = _⊆′_
-    where open Lift (subsetoids n)
+    where open Sub n
 
   subset-at′-resp-contain-at′ : ∀ n {x} →
     (contain-at′ n x) Respects (subset-at′ n)
   subset-at′-resp-contain-at′ n = ∈-resp-⊆′
-    where open Lift (subsetoids n)
+    where open Sub n
+
+  -- following we will build a general membership and subset relation that is indexed
+  -- by the setoid level given above
+  infix 4 contain-at subset-at
 
   contain-at : ∀ n (x : NL n) (xs : NL (suc n)) → Set (c ⊔ ℓ)
   contain-at n
     rewrite sym (subsetoid-carriers (suc n))
           | sym (subsetoid-carriers n) = contain-at′ n
-    where open Lift (subsetoids n)
+    where open Sub n
   syntax contain-at n x xs = x ∈[ n ] xs
 
   subset-at : ∀ n (l₁ l₂ : NL (suc n)) → Set (c ⊔ ℓ)
-  subset-at n
-    rewrite sym (subsetoid-carriers (suc n)) = subset-at′ n
+  subset-at n rewrite sym (subsetoid-carriers (suc n)) = subset-at′ n
   syntax subset-at n l₁ l₂ = l₁ ⊆[ n ] l₂
+
 
   ⊆[]-resp-∈[] : ∀ n {x} →
     (λ l₁ → x ∈[ n ] l₁) Respects (λ l₁ l₂ → l₁ ⊆[ n ] l₂)
@@ -123,40 +153,61 @@ module ∈⊆-Reasoning {c ℓ} (S : Setoid c ℓ) where
     rewrite sym (subsetoid-carriers (suc n))
           | sym (subsetoid-carriers n) = subset-at′-resp-contain-at′ n
 
-  data [_]_Related[_]_ : (n : ℕ) → NL n → (m : ℕ) → NL m → Set (c ⊔ ℓ) where
-    lvl0 : ∀ {n x} → [ n ] x Related[ n ] x
-    lvl+ : ∀ {n l L m} {Ł : NL m} →
-             (l∈[n]L : l ∈[ n ] L) →
-             [ suc n ] L Related[ m ] Ł →
-             [ n ] l Related[ m ] Ł
 
-  _∎ : ∀ {n} x → [ n ] x Related[ n ] x
+
+-- we then build a reasoning API out of the previous hierarchy
+module ∈⊆-Reasoning {c ℓ} (S : Setoid c ℓ) where
+
+  open import Data.Nat using (ℕ ; suc ; zero ; _+_)
+  open import Relation.Binary.PropositionalEquality using (_≡_ ; refl ; sym)
+  
+  import Data.Nat.Properties as ℕₚ
+  import Relation.Binary.PartialOrderReasoning as PORe
+
+  open Hierarchy S
+
+  conv-NL : ∀ {n} m → NL (suc m + n) → NL (m + suc n)
+  conv-NL {n} m nl rewrite ℕₚ.+-suc m n = nl
+
+  data [_]_Related[_]_ : (n : ℕ) → NL n → (m : ℕ) → NL (m + n) → Set (c ⊔ ℓ) where
+    lvl0 : ∀ {n x} → [ n ] x Related[ 0 ] x
+    lvl+ : ∀ {n l L m} {Ł : NL (suc m + n)} →
+             (l∈[n]L : l ∈[ n ] L) →
+             [ suc n ] L Related[ m ] (conv-NL m Ł) →
+             [ n ] l Related[ suc m ] Ł
+
+  _∎ : ∀ {n} x → [ n ] x Related[ 0 ] x
   _ ∎ = lvl0
 
-  _∈⟨_⟩_ : ∀ {n} l {L m} {Ł : NL m} →
+  _∈⟨_⟩_ : ∀ {n} l {L m Ł} →
              (l∈[n]L : l ∈[ n ] L) →
-             [ suc n ] L Related[ m ] Ł →
-             [ n ] l Related[ m ] Ł
+             [ suc n ] L Related[ m ] (conv-NL m Ł) →
+             [ n ] l Related[ suc m ] Ł
   l ∈⟨ l∈[n]L ⟩ ev = lvl+ l∈[n]L ev
 
   enlarge : ∀ {n} (x : NL n) l {l′ m L} (x∈[n]l : x ∈[ n ] l) →
               l ⊆[ n ] l′ →
-              [ suc n ] l′ Related[ m ] L →
-              [ n ] x Related[ m ] L
+              [ suc n ] l′ Related[ m ] (conv-NL m L) →
+              [ n ] x Related[ suc m ] L
   enlarge {n} x l x∈l l⊆l′ ev = lvl+ (⊆[]-resp-∈[] n l⊆l′ x∈l) ev
   syntax enlarge x l x∈l l⊆l′ ev = x ∈⟨ x∈l ⟩- l ⊆⟨ l⊆l′ ⟩ ev
 
-  open import Relation.Nullary using (¬_)
+  conv-NL′ : ∀ m {n} → NL (suc m + n) → GNL m (suc n)
+  conv-NL′ m {n} nl rewrite NL⇒GNL′ m n = nl
 
-  progressive-reasoning : ∀ {n m x y} → ¬ ([ suc n + m ] x Related[ m ] y)
-  progressive-reasoning {n} {zero} (lvl+ l∈[n]L ev) = progressive-reasoning {suc n} ev
-  progressive-reasoning {n} {suc m} ev = {!!}
+  establish′ : ∀ {n l m L} → [ n ] l Related[ suc m ] L →
+                 l ∈[ n ] gconcats m (suc n) (conv-NL′ m L)
+  establish′ {n} {l} {.0} {L} (lvl+ l∈[n]L lvl0)
+    rewrite gconcats0⇒id (suc n) L = l∈[n]L
+  establish′ {n} {l} {.(suc _)} {L} (lvl+ l∈[n]L ev@(lvl+ l∈[n]L₁ ev′)) = {!establish′ ev!}
 
   module _ where
     open Lift S
 
-    -- establish : ∀ x {l m L} → x ∈ l → [ 0 ] l Related[ m ] L → x ∈ concats m L
-    -- establish x {m = zero} x∈l lvl0 = x∈l
-    -- establish x {m = zero} x∈l (lvl+ l∈[n]L ev) with progressive-reasoning ev
-    -- ... | ()
-    -- establish x {m = suc m} x∈l (lvl+ l∈[n]L ev) = {!∈-concat⁺′ S x∈l !}
+    establish : ∀ x {l m L} → x ∈ l →
+                  [ 0 ] l Related[ suc m ] L → x ∈ concats (suc m) (conv-NL′ m L)
+    establish x {m = m} {L} x∈l ev = ∈-concat⁺′ S x∈l (establish′ ev)
+
+    begin_∈⟨_⟩_ : ∀ x {l m L} → x ∈ l →
+                    [ 0 ] l Related[ suc m ] L → x ∈ concats (suc m) (conv-NL′ m L)
+    begin_∈⟨_⟩_ = establish
