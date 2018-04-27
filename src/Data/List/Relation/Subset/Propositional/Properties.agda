@@ -43,7 +43,7 @@ module ∈⊆-Reasoning (a : Level) where
 
   private
     poset : Set a → Poset _ _ _
-    poset A = struct.InducedPoset
+    poset A = struct.⊆′-poset
       where module struct = SStructures A
 
     concats : ∀ {A} n → NList (suc n) A → List A

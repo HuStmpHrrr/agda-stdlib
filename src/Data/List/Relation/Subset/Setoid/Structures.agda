@@ -15,7 +15,7 @@ open import Data.List.All
 open import Data.Product
 
 open import Relation.Nullary using (¬_)
-open import Relation.Binary.InducedPreorders
+open import Relation.Binary.InducedStructures
 
 open import Data.List.Relation.Subset.Setoid S
 open Setoid S renaming (Carrier to A)
@@ -36,20 +36,24 @@ l⊆′x∷l {x} {y ∷ l}  = there (here refl) ∷ ⊆′-growʳ l⊆′x∷l
 ⊆′-trans []          y⊆z = []
 ⊆′-trans (h∈y ∷ x⊆y) y⊆z = ∈-resp-⊆′ y⊆z h∈y ∷ ⊆′-trans x⊆y y⊆z
 
-⊆′-preorder : Preorder _ _ _
-⊆′-preorder = InducedPreorder₃ S _⊆′_ ⊆′-refl ⊆′-trans
+≋-setoid : Setoid _ _
+≋-setoid = InducedSetoid _⊆′_ ⊆′-refl ⊆′-trans
 
 -- set equivalence relation
-_≋_ : List A → List A → Set _
-_≋_ = Preorder._≈_ ⊆′-preorder
+open Setoid ≋-setoid using () renaming (_≈_ to _≋_)
+
+⊆′-preorder : Preorder _ _ _
+⊆′-preorder = InducedPreorder _⊆′_ ⊆′-refl ⊆′-trans
+
+⊆′-poset : Poset _ _ _
+⊆′-poset = InducedPoset _⊆′_ ⊆′-refl ⊆′-trans
 
 ∈-resp-≋ : ∀ {x} → (x ∈_) Respects _≋_
 ∈-resp-≋ (xs⊆ys , _) x∈xs = ∈-resp-⊆′ xs⊆ys x∈xs
 
-open import Relation.Binary.Properties.Preorder ⊆′-preorder public
-open import Relation.Binary.NonStrictToStrict
+⊂-strictPartialOrder : StrictPartialOrder _ _ _
+⊂-strictPartialOrder = InducedStrictPartialOrder _⊆′_ ⊆′-refl ⊆′-trans
 
-InducedStrictPartialOrder : StrictPartialOrder _ _ _
-InducedStrictPartialOrder = record
-  { isStrictPartialOrder = <-isStrictPartialOrder _≋_ _⊆′_ isPartialOrder }
-  where open Poset InducedPoset
+open StrictPartialOrder ⊂-strictPartialOrder
+     using ()
+     renaming (_<_ to _⊂_)

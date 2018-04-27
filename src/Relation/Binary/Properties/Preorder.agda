@@ -11,6 +11,10 @@ module Relation.Binary.Properties.Preorder
 
 open import Function
 open import Data.Product as Prod
+open import Relation.Binary.InducedStructures
+     renaming ( InducedSetoid to ISetoid
+              ; InducedPoset to IPoset
+              )
 
 open Relation.Binary.Preorder P
 
@@ -30,29 +34,10 @@ invPreorder = record { isPreorder = invIsPreorder }
 -- For every preorder there is an induced equivalence
 
 InducedEquivalence : Setoid _ _
-InducedEquivalence = record
-  { _≈_           = λ x y → x ∼ y × y ∼ x
-  ; isEquivalence = record
-    { refl  = (refl , refl)
-    ; sym   = swap
-    ; trans = Prod.zip trans (flip trans)
-    }
-  }
+InducedEquivalence = ISetoid _∼_ refl trans
 
 ------------------------------------------------------------------------
 -- For every preorder there is an induced poset over InducedEquivalence
 
 InducedPoset : Poset _ _ _
-InducedPoset = record
-  { _≈_            = _≋_
-  ; _≤_            = _∼_
-  ; isPartialOrder = record
-    { isPreorder = record
-      { isEquivalence = equiv
-      ; reflexive     = proj₁
-      ; trans         = trans
-      }
-    ; antisym    = _,_
-    }
-  } where open Setoid InducedEquivalence using ()
-               renaming (_≈_ to _≋_ ; isEquivalence to equiv)
+InducedPoset = IPoset _∼_ refl trans

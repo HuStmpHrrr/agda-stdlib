@@ -47,21 +47,3 @@ InducedPreorder₂ _R_ resp = record
     }
   }
 
--- Every reflexive and transitive binary relation induces a preorder.
-
-InducedPreorder₃ : ∀ {a r} {A : Set a} →
-                     (_R_ : A → A → Set r) →
-                     Reflexive _R_ → Transitive _R_ → Preorder _ _ _
-InducedPreorder₃ _R_ refl trans = record
-  { _≈_        = λ x y → x R y × y R x
-  ; _∼_        = _R_
-  ; isPreorder = record
-    { isEquivalence = record
-      { refl  = refl , refl
-      ; sym   = swap
-      ; trans = λ { (xRy , yRx) (yRz , zRy) → trans xRy yRz , trans zRy yRx }
-      }
-    ; reflexive     = proj₁
-    ; trans         = trans
-    }
-  }
